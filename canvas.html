@@ -8,15 +8,19 @@
     <link rel="stylesheet" href="canvas.css">
     <title>convection</title>
 
-    // here, im mapping links to strings so URLs dont make things really messy
-    // can use these strings throughout my .js file
+    <!-- here, im mapping library import links to strings so URLs dont make things really messy
+    can use these strings throughout my .js file -->
+
+    <!-- imports are in html file so DOM reads these guys first  -->
+
     <script type="importmap">
 
   {
     "imports": {
       "three": "https://unpkg.com/three@0.176.0/build/three.module.js",
       "three/examples/jsm/controls/OrbitControls.js": "https://unpkg.com/three@0.176.0/examples/jsm/controls/OrbitControls.js",
-      "three/examples/jsm/loaders/GLTFLoader.js": "https://unpkg.com/three@0.176.0/examples/jsm/loaders/GLTFLoader.js"
+      "three/examples/jsm/loaders/GLTFLoader.js": "https://unpkg.com/three@0.176.0/examples/jsm/loaders/GLTFLoader.js",
+      "three/examples/jsm/loaders/RGBELoader.js": "https://unpkg.com/three@0.176.0/examples/jsm/loaders/RGBELoader.js"
     }
   }
 
