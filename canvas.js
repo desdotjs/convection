@@ -1,11 +1,14 @@
 "use strict";
 
+// ///////////// IMPORTS
+
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { RGBELoader } from "three/examples/jsm/loaders/RGBELoader.js";
 
-// constants - global settings, or rules
+// ///////////// CONFIG
+// app-wide settings, edit once
 
 const CONFIG = {
 
@@ -13,20 +16,22 @@ const CONFIG = {
   version: "1.0.0",
   background: 0x111111,
   modelPath: "/assets/fish.glb",
+  modelScale: 0.1,
 
-    attractor: { // hadley attractor values put in CONFIG because it controls behavior, not logic
+  attractor: { // hadley attractor values put in CONFIG because it controls behavior, not logic
     a: 0.2,
     b: 4,
     f: 8,
     g: 1,
     dt: 0.01,
     steps: 30000,
+    count: 20, // how many models to place
   }
 
 };
 
-///////////// CREATING ENVIRONMENT / SCENE ໒꒰ྀི ˶• ༝ •˶ ꒱ྀི১₊˚⊹♡
-// typical three.js environments must include: camera, a renderer, lighting, scene meshes / objects, exr file
+// ///////////// WORLD
+// the scene, the eye, the screen
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(CONFIG.background); // container holding + rendering everything
@@ -40,43 +45,7 @@ const camera = new THREE.PerspectiveCamera(
   0.1, // near clip
   1000 // far clip
 );
-camera.position.set(0, 0, 5);
-
-// hadley attractor logic walks through the equations step by step, collecting x,y,z positions
-// belongs in OBJECTS section because of physical presence
-// each step is a tiny nudge forward in time using dt (aka: delta time, the size of each step forward)
-
-const { a, b, f, g, dt, steps } = CONFIG.attractor; // CONFIG.objectname always pull values out of CONFIG
-
-const next = (x, y, z) => {
-
-  const dx = -Math.pow(y, 2) - Math.pow(z, 2) - a * x + a * f;
-  const dy = x * y - b * x * z - y + g;
-  const dz = b * x * y + x * z - z;
-  return { dx, dy, dz };
-
-};
-
-let x = 0.1, y = 0, z = 0; // starting position of attractor
-
-const points = []; // storing previous position
-
-for (let i = 0; i < steps; i++) {
-
-  const { dx, dy, dz } = next(x, y, z);
-  x += dx * dt;
-  y += dy * dt;
-  z += dz * dt;
-  points.push(new THREE.Vector3(x, y, z));
-
-}
-
-// building the line from the collected points
-// belongs in OBJECT section because its static - stored positions do NOT update over time, so it doesn't go in RENDER
-const attractorGeometry = new THREE.BufferGeometry().setFromPoints(points);
-const attractorMaterial = new THREE.LineBasicMaterial({ color: 0xffffff });
-const attractorLine = new THREE.Line(attractorGeometry, attractorMaterial);
-scene.add(attractorLine);
+camera.position.set(0, 0, 5); // pulled back to see the attractor
 
 // RENDERING to screen
 
@@ -90,7 +59,8 @@ const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.05;
 
-// LIGHTING the environment
+// ///////////// LIGHTING
+// without it, nothing is visible
 
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
 // ambientlight evenly and softly lights the 3d scene
@@ -101,7 +71,7 @@ const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
 directionalLight.position.set(5, 10, 7.5);
 scene.add(directionalLight);
 
-// STATE
+// ///////////// STATE
 // tracks states between frames - made an object to condense into one param
 
 let state = {
@@ -113,50 +83,85 @@ let state = {
 
 };
 
-// console / utilities
+// ///////////// UTILITIES
+// log(...args) — prints to console only if CONFIG.debug is true
+// handleError(error) — logs errors consistently, called inside try/catch
 
 function log(...args) {
-
   if (CONFIG.debug) console.log("[App]", ...args);
-
 }
 
 function handleError(error) {
-
   console.error("[Error]", error);
-
 }
 
-// defining objects in scene (meshes, models, geometries)
+// ///////////// OBJECTS
+// meshes, materials, geometries — static things that live in the scene
 
-const geometry = new THREE.BoxGeometry(1, 1, 1);
-const material = new THREE.MeshStandardMaterial({ color: 0x00aaff });
-const cube = new THREE.Mesh(geometry, material);
+// hadley attractor — walks through the equations step by step, collecting x,y,z positions
+// each step is a tiny nudge forward in time using dt (delta time)
+// static — stored positions do NOT update over time, so it doesn't go in DRAW
 
-// MODEL loading
+const { a, b, f, g, dt, steps } = CONFIG.attractor; // pull values out of CONFIG
 
-// gltf / glb standard 3D file format for the web
-// await pauses execution until its done loading before moving on - avoids crashing this way
+const next = (x, y, z) => {
+  const dx = -Math.pow(y, 2) - Math.pow(z, 2) - a * x + a * f;
+  const dy = x * y - b * x * z - y + g;
+  const dz = b * x * y + x * z - z;
+  return { dx, dy, dz };
+};
+
+let x = 0.1, y = 0, z = 0; // starting position of attractor
+const points = []; // collecting x,y,z positions
+
+for (let i = 0; i < steps; i++) {
+  const { dx, dy, dz } = next(x, y, z);
+  x += dx * dt;
+  y += dy * dt;
+  z += dz * dt;
+  points.push(new THREE.Vector3(x, y, z));
+}
+
+// build the line from the collected points
+const attractorGeometry = new THREE.BufferGeometry().setFromPoints(points);
+const attractorMaterial = new THREE.LineBasicMaterial({ color: 0xffffff });
+const attractorLine = new THREE.Line(attractorGeometry, attractorMaterial);
+scene.add(attractorLine);
+
+// ///////////// LOADING
+// loadModel() — loads the glb and places clones along the attractor
+// loadEnvironment() — loads the hdr for chrome reflections
+// applyChromeMaterial() — applies chrome material to each mesh
 
 async function loadModel() {
 
   const loader = new GLTFLoader();
   const gltf = await loader.loadAsync(CONFIG.modelPath);
-  
-  gltf.scene.scale.set(.1, .1, .1); // scaling model
 
-  gltf.scene.traverse((child) => {
+  const { count } = CONFIG.attractor;
 
-    if (child.isMesh) {
+  for (let i = 0; i < count; i++) {
 
-      applyChromeMaterial(child);
+    // pick an evenly spaced point along the attractor
+    const index = Math.floor((i / count) * points.length);
+    const point = points[index];
 
-    }
+    // clone the model for each position
+    const clone = gltf.scene.clone(true);
+    clone.position.copy(point);
+    clone.scale.setScalar(CONFIG.modelScale);
 
-  });
+    clone.traverse((child) => {
+      if (child.isMesh) {
+        applyChromeMaterial(child);
+      }
+    });
 
-  scene.add(gltf.scene);
-  log("Model loaded");
+    scene.add(clone);
+
+  }
+
+  log("Models loaded");
 
 }
 
@@ -175,24 +180,19 @@ async function loadEnvironment() {
 function applyChromeMaterial(mesh) {
 
   mesh.material = new THREE.MeshStandardMaterial({
-
     metalness: 1.0,  // fully metallic
     roughness: 0.0,  // perfectly smooth — no diffuse scattering
-
   });
 
 }
 
-// update state / draw - handling all animation data
+// ///////////// DRAW
+// update() — moves things, updates state each frame
+// draw() — calls update then renders the frame
 
 function update(state) {
 
   state.elapsed = state.clock.getElapsedTime();
-  // getelapsedtime
-
-  cube.rotation.x = state.elapsed * 0.5;
-  cube.rotation.y = state.elapsed * 0.5;
-
   controls.update();
 
 }
@@ -204,9 +204,14 @@ function draw(renderer, scene, camera, state) {
 
 }
 
-// ANIMATION loop (calling render every frame)
+// ///////////// PULSE
+// the heartbeat of the app
+// tick() — one frame: draw + schedule next frame
+// startLoop() — fires the first tick
+// stopLoop() — cancels the loop
+// bindEvents() — nervous system, reacts to user input
 
-function tick(renderer, scene, camera, state, draw) { 
+function tick(renderer, scene, camera, state, draw) {
 
   // create current frame
   draw(renderer, scene, camera, state);
@@ -235,16 +240,14 @@ function stopLoop(state) {
 function bindEvents() {
 
   window.addEventListener("resize", () => {
-
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
-
   });
 
 }
 
-// init
+// ///////////// INIT
 
 async function init() {
 
