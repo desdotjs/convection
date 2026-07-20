@@ -16,7 +16,7 @@ const CONFIG = {
   version: "1.0.0",
   background: 0x111111,
   modelPath: "/assets/fish.glb",
-  modelScale: 0.1,
+  modelScale: 0.05,
 
   attractor: { // hadley attractor values put in CONFIG because it controls behavior, not logic
     a: 0.2,
@@ -25,7 +25,7 @@ const CONFIG = {
     g: 1,
     dt: 0.01,
     steps: 30000,
-    count: 20, // how many models to place
+    count: 100, // how many models to place
   }
 
 };
@@ -137,19 +137,20 @@ async function loadModel() {
 
   const loader = new GLTFLoader();
   const gltf = await loader.loadAsync(CONFIG.modelPath);
-
   const { count } = CONFIG.attractor;
 
   for (let i = 0; i < count; i++) {
 
-    // pick an evenly spaced point along the attractor
     const index = Math.floor((i / count) * points.length);
     const point = points[index];
+    const nextPoint = points[index + 1]; // the next point along the path
 
-    // clone the model for each position
     const clone = gltf.scene.clone(true);
     clone.position.copy(point);
     clone.scale.setScalar(CONFIG.modelScale);
+
+    // aligns clone to the path direction
+    if (nextPoint) clone.lookAt(nextPoint);
 
     clone.traverse((child) => {
       if (child.isMesh) {
