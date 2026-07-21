@@ -25,7 +25,8 @@ const CONFIG = {
     g: 1,
     dt: 0.01,
     steps: 30000,
-    count: 100, // how many models to place
+    count: 20,   // how many models to place
+    speed: 0.2,  // supports decimals — lower = slower, higher = faster
   }
 
 };
@@ -80,6 +81,7 @@ let state = {
   animationId: null,
   clock: new THREE.Clock(), // internal time clock for three.js
   elapsed: 0,
+  clones: [], // stores each clone + its current index along the path
 
 };
 
@@ -129,7 +131,8 @@ const attractorLine = new THREE.Line(attractorGeometry, attractorMaterial);
 scene.add(attractorLine);
 
 // ///////////// LOADING
-// loadModel() — loads the glb and places clones along the attractor
+// loadModel() — loads the glb, creates count clones evenly spaced along the path
+// each clone is stored in state.clones with its current path index so update() can move it
 // loadEnvironment() — loads the hdr for chrome reflections
 // applyChromeMaterial() — applies chrome material to each mesh
 
@@ -141,15 +144,15 @@ async function loadModel() {
 
   for (let i = 0; i < count; i++) {
 
+    // stagger starting positions evenly so they don't all pile up at the same point
     const index = Math.floor((i / count) * points.length);
     const point = points[index];
-    const nextPoint = points[index + 1]; // the next point along the path
+    const nextPoint = points[Math.min(index + 1, points.length - 1)];
 
     const clone = gltf.scene.clone(true);
     clone.position.copy(point);
     clone.scale.setScalar(CONFIG.modelScale);
 
-    // aligns clone to the path direction
     if (nextPoint) clone.lookAt(nextPoint);
 
     clone.traverse((child) => {
@@ -159,6 +162,10 @@ async function loadModel() {
     });
 
     scene.add(clone);
+
+    // store clone + its current float index in state so update() can advance it each frame
+    // float index allows sub-point movement for finer speed control
+    state.clones.push({ clone, index: index });
 
   }
 
@@ -194,6 +201,25 @@ function applyChromeMaterial(mesh) {
 function update(state) {
 
   state.elapsed = state.clock.getElapsedTime();
+
+  // advance each clone backwards along the attractor path every frame
+  // float index allows decimal speed values for fine control
+  // Math.floor samples the nearest real point — % wraps perpetually
+for (const fish of state.clones) {
+  fish.index = (fish.index - CONFIG.attractor.speed + points.length) % points.length;
+  
+  const i0 = Math.floor(fish.index);
+  const i1 = Math.min(i0 + 1, points.length - 1);
+  const t = fish.index - i0; // how far between i0 and i1 we are (0 to 1)
+
+  // smoothly blend between the two neighbouring points
+  const smoothPos = new THREE.Vector3().lerpVectors(points[i0], points[i1], t);
+  fish.clone.position.copy(smoothPos);
+
+  const nextPoint = points[i1];
+  if (nextPoint) fish.clone.lookAt(nextPoint);
+}
+
   controls.update();
 
 }
