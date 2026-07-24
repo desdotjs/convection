@@ -16,16 +16,16 @@ const CONFIG = {
   version: "1.0.0",
   background: 0x111111,
   modelPath: "/assets/fish.glb",
-  modelScale: 0.05,
+  modelScale: 0.035,
 
   attractor: { // hadley attractor values put in CONFIG because it controls behavior, not logic
     a: 0.2,
     b: 4,
-    f: 8,
-    g: 1,
+    f: 8, // amplitude
+    g: 1.15,
     dt: 0.01,
     steps: 30000,
-    count: 20,   // how many models to place
+    count: 500,   // how many models to place
     speed: 0.2,  // supports decimals — lower = slower, higher = faster
   }
 
@@ -117,17 +117,28 @@ let x = 0.1, y = 0, z = 0; // starting position of attractor
 const points = []; // collecting x,y,z positions
 
 for (let i = 0; i < steps; i++) {
+
   const { dx, dy, dz } = next(x, y, z);
   x += dx * dt;
   y += dy * dt;
   z += dz * dt;
   points.push(new THREE.Vector3(x, y, z));
+
 }
 
 // build the line from the collected points
 const attractorGeometry = new THREE.BufferGeometry().setFromPoints(points);
-const attractorMaterial = new THREE.LineBasicMaterial({ color: 0xffffff });
+
+const attractorMaterial = new THREE.LineBasicMaterial({
+
+  color: 0xffffff,
+  transparent: true,
+  opacity: 0.0, // 0 = fully transparent, 1 = fully opaque
+
+});
+
 const attractorLine = new THREE.Line(attractorGeometry, attractorMaterial);
+
 scene.add(attractorLine);
 
 // ///////////// LOADING
@@ -188,8 +199,10 @@ async function loadEnvironment() {
 function applyChromeMaterial(mesh) {
 
   mesh.material = new THREE.MeshStandardMaterial({
+
     metalness: 1.0,  // fully metallic
     roughness: 0.0,  // perfectly smooth — no diffuse scattering
+    
   });
 
 }
@@ -204,7 +217,7 @@ function update(state) {
 
   // advance each clone backwards along the attractor path every frame
   // float index allows decimal speed values for fine control
-  // Math.floor samples the nearest real point — % wraps perpetually
+
 for (const fish of state.clones) {
   fish.index = (fish.index - CONFIG.attractor.speed + points.length) % points.length;
   
@@ -212,7 +225,7 @@ for (const fish of state.clones) {
   const i1 = Math.min(i0 + 1, points.length - 1);
   const t = fish.index - i0; // how far between i0 and i1 we are (0 to 1)
 
-  // smoothly blend between the two neighbouring points
+  // smoothly blend between the two neighbouring points using lerp
   const smoothPos = new THREE.Vector3().lerpVectors(points[i0], points[i1], t);
   fish.clone.position.copy(smoothPos);
 
