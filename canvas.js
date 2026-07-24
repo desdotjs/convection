@@ -16,7 +16,7 @@ const CONFIG = {
   version: "1.0.0",
   background: 0x111111,
   modelPath: "/assets/fish.glb",
-  modelScale: 0.035,
+  modelScale: 0.05,
 
   attractor: { // hadley attractor values put in CONFIG because it controls behavior, not logic
     a: 0.2,
@@ -189,7 +189,7 @@ async function loadModel() {
 async function loadEnvironment() {
 
   const rgbeLoader = new RGBELoader();
-  const texture = await rgbeLoader.loadAsync("/assets/exr-temp.hdr");
+  const texture = await rgbeLoader.loadAsync("/assets/chrome.hdr");
   texture.mapping = THREE.EquirectangularReflectionMapping;
   scene.environment = texture; // lights + reflects off all meshes
   log("Environment loaded");
